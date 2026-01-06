@@ -15,6 +15,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -88,14 +90,19 @@ public class TransactionService {
         if (!accountRepository.existsById(fromId) || !accountRepository.existsById(toId)) {
             throw new AccountNotFoundException("Account does not exist");
         } else {
-            Account accountFrom;
-            Account accountTo;
+            Account accountFrom = new Account();
+            Account accountTo = new Account();
             if(fromId.toString().compareTo(toId.toString())<0) {
-                 accountFrom = accountRepository.findByIdForUpdate(fromId).get();
-                 accountTo = accountRepository.findByIdForUpdate(toId).get();
+                 Optional<Account> accountFromOpt = accountRepository.findByIdForUpdate(fromId);
+                 if (accountFromOpt.isPresent()) accountFrom = accountFromOpt.get();
+                Optional<Account> accountToOpt = accountRepository.findByIdForUpdate(toId);
+                 if (accountToOpt.isPresent())  accountTo = accountToOpt.get();
+
             } else{
-                 accountTo = accountRepository.findByIdForUpdate(toId).get();
-                 accountFrom = accountRepository.findByIdForUpdate(fromId).get();
+                Optional<Account> accountToOpt = accountRepository.findByIdForUpdate(toId);
+                if (accountToOpt.isPresent())  accountTo = accountToOpt.get();
+                Optional<Account> accountFromOpt = accountRepository.findByIdForUpdate(fromId);
+                if (accountFromOpt.isPresent()) accountFrom = accountFromOpt.get();
             }
             if (amount.compareTo(BigDecimal.valueOf(5000)) > 0){
                 throw new LimitReachedException("Transfer can be up to 5000");
@@ -105,7 +112,11 @@ public class TransactionService {
                return;
             }
             List<Transaction> transactions = getTransactionsByIdAndDateBetween(fromId, LocalDate.now().atStartOfDay(),LocalDate.now().plusDays(1).atStartOfDay());
-            BigDecimal sum = transactions.stream().filter(a->a.getDebit()!=null).map(Transaction::getDebit).reduce(BigDecimal.ZERO,BigDecimal::add);
+            BigDecimal currentBalance = transactions.stream().map(Transaction::getCredit).filter(Objects::nonNull).reduce(BigDecimal.ZERO,BigDecimal::add);
+            if (currentBalance.compareTo(amount) < 0){
+                throw new NotEnoughMoneyException("Not enough money on balance");
+            }
+            BigDecimal sum = transactions.stream().map(Transaction::getDebit).filter(Objects::nonNull).reduce(BigDecimal.ZERO,BigDecimal::add);
             if (sum.add(amount).compareTo(BigDecimal.valueOf(5000)) > 0){
                 throw new LimitReachedException("Day limit reached 5000, transaction can not continue");
             }

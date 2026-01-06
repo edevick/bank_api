@@ -1,6 +1,5 @@
 package com.SimpleBankAPI.controllers;
 
-import com.SimpleBankAPI.enums.TransactionName;
 import com.SimpleBankAPI.models.Account;
 import com.SimpleBankAPI.models.Transaction;
 import com.SimpleBankAPI.services.AccountService;
