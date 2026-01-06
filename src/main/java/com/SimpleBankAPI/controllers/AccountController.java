@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.LinkedList;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/accounts")
@@ -32,43 +32,43 @@ public class AccountController {
   }
     //check account
   @GetMapping("/{id}/transactions")
-  public List<Transaction> getTransactions(@PathVariable Long id){
+  public List<Transaction> getTransactions(@PathVariable UUID id){
       return transactionService.getTransactionsById(id);
   }
 
     //deposit money
   @PostMapping("/{id}/deposit")
-  public ResponseEntity<Void> deposit( @PathVariable Long id,  @RequestParam BigDecimal amount){
-      transactionService.deposit(id,amount);
+  public ResponseEntity<Void> deposit( @PathVariable UUID accountId,  @RequestParam String transactionRef, @RequestParam BigDecimal amount){
+      transactionService.deposit(accountId,transactionRef,amount);
       return ResponseEntity.ok().build();
   }
 
     //withdrawal money
   @PostMapping("/{id}/withdrawal")
-  public ResponseEntity<Void> withdrawal( @PathVariable Long id,  @RequestParam BigDecimal amount){
-      transactionService.withdrawal(id,amount);
+  public ResponseEntity<Void> withdrawal( @PathVariable UUID accountId,  @RequestParam String transactionRef, @RequestParam BigDecimal amount){
+      transactionService.withdrawal(accountId,transactionRef,amount);
       return ResponseEntity.ok().build();
   }
 
     //transfer money between accounts
   @PostMapping("/transfer")
-  public ResponseEntity<Void> transfer(@RequestParam Long fromId ,@RequestParam Long toId, @RequestParam BigDecimal amount){
-        transactionService.transfer(fromId,toId,amount);
+  public ResponseEntity<Void> transfer(@RequestParam UUID fromId ,@RequestParam UUID toId, @RequestParam String transactionRef, @RequestParam BigDecimal amount){
+        transactionService.transfer(fromId,toId,transactionRef,amount);
         return ResponseEntity.ok().build();
   }
 
 
     //transactions history with filters by type and day
   @GetMapping("/{id}/history")
-  public List<Transaction> history(@PathVariable Long id, @RequestParam(required = false) TransactionName type,
+  public List<Transaction> history(@PathVariable UUID id,
                                       @RequestParam(required = false) LocalDateTime startDate,
                                       @RequestParam(required = false) LocalDateTime finishDate ){
-      return transactionService.getTransactionsByIdAndDateBetween(id,type,startDate,finishDate);
+      return transactionService.getTransactionsByIdAndDateBetween(id,startDate,finishDate);
     }
 
     //recalculate balance
   @PostMapping("/{id}/recalculation")
-  public ResponseEntity<Void> recalculate(@PathVariable Long id){
+  public ResponseEntity<Void> recalculate(@PathVariable UUID id){
       transactionService.recalculate(id);
       return ResponseEntity.ok().build();
   }

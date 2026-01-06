@@ -6,9 +6,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
-public interface TransactionRepository extends JpaRepository<Transaction,Long> {
-    List<Transaction> findByAccountIdAndTypeAndDateBetween(Long accountId, TransactionName type, LocalDateTime from, LocalDateTime to);
+public interface TransactionRepository extends JpaRepository<Transaction, UUID> {
+    List<Transaction> findByAccountIdAndDateBetween(UUID accountId, LocalDateTime from, LocalDateTime to);
 
-    List<Transaction> findByAccountId(Long accountId);
+    List<Transaction> findByAccountId(UUID accountId);
+    List<Transaction> findByTransactionRef(String transactionRef);
+
 }
