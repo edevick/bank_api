@@ -1,13 +1,14 @@
 package com.SimpleBankAPI.controllers;
 
+import com.SimpleBankAPI.dtos.DepositRequest;
+import com.SimpleBankAPI.dtos.TransferRequest;
+import com.SimpleBankAPI.dtos.WithdrawalRequest;
 import com.SimpleBankAPI.models.Account;
 import com.SimpleBankAPI.models.Transaction;
 import com.SimpleBankAPI.services.AccountService;
 import com.SimpleBankAPI.services.TransactionService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -37,22 +38,22 @@ public class AccountController {
 
     //deposit money
   @PostMapping("/{id}/deposit")
-  public ResponseEntity<Void> deposit( @PathVariable("id") UUID accountId,  @RequestParam String transactionRef, @RequestParam BigDecimal amount){
-      transactionService.deposit(accountId,transactionRef,amount);
+  public ResponseEntity<Void> deposit(@PathVariable UUID id,@RequestBody DepositRequest depositRequest){
+      transactionService.deposit(id,depositRequest);
       return ResponseEntity.ok().build();
   }
 
     //withdrawal money
   @PostMapping("/{id}/withdrawal")
-  public ResponseEntity<Void> withdrawal( @PathVariable("id") UUID accountId,  @RequestParam String transactionRef, @RequestParam BigDecimal amount){
-      transactionService.withdrawal(accountId,transactionRef,amount);
+  public ResponseEntity<Void> withdrawal( @PathVariable("id") UUID accountId,  @RequestBody WithdrawalRequest withdrawalRequest){
+      transactionService.withdrawal(accountId,withdrawalRequest);
       return ResponseEntity.ok().build();
   }
 
     //transfer money between accounts
   @PostMapping("/transfer")
-  public ResponseEntity<Void> transfer(@RequestParam UUID fromId ,@RequestParam UUID toId, @RequestParam String transactionRef, @RequestParam BigDecimal amount){
-        transactionService.transfer(fromId,toId,transactionRef,amount);
+  public ResponseEntity<Void> transfer(@RequestBody TransferRequest transferRequest){
+        transactionService.transfer(transferRequest);
         return ResponseEntity.ok().build();
   }
 

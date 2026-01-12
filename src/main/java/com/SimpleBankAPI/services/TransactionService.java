@@ -1,5 +1,8 @@
 package com.SimpleBankAPI.services;
 
+import com.SimpleBankAPI.dtos.DepositRequest;
+import com.SimpleBankAPI.dtos.TransferRequest;
+import com.SimpleBankAPI.dtos.WithdrawalRequest;
 import com.SimpleBankAPI.exceptions.*;
 import com.SimpleBankAPI.models.Account;
 import com.SimpleBankAPI.models.Transaction;
@@ -26,11 +29,11 @@ public class TransactionService {
         this.accountRepository = accountRepository;
     }
     @Transactional
-    public Transaction deposit(UUID accountId,String transactionRef, BigDecimal amount){
-        if (amount.signum() <= 0) {
+    public Transaction deposit(UUID accountId, DepositRequest depositRequest){
+        if (depositRequest.amount.signum() <= 0) {
             throw new InvalidAmountException("Amount must be positive");
         }
-        List<Transaction>transactionList = transactionRepository.findByTransactionRef(transactionRef);
+        List<Transaction>transactionList = transactionRepository.findByTransactionRef(depositRequest.transactionRef);
         if (!transactionList.isEmpty()){
             for (Transaction tr:transactionList) {
                 if (!tr.getAccount().getId().equals(accountId)){
@@ -44,11 +47,11 @@ public class TransactionService {
         if (accountRepository.existsById(accountId)) {
             Account account  = accountRepository.findById(accountId).get();
             transaction.setDate(LocalDateTime.now());
-            transaction.setCredit(amount);
-            transaction.setTransactionRef(transactionRef);
+            transaction.setCredit(depositRequest.amount);
+            transaction.setTransactionRef(depositRequest.transactionRef);
             transaction.setDebit(null);
             transaction.setAccount(account);
-            account.setBalance(account.getBalance().add(amount));
+            account.setBalance(account.getBalance().add(depositRequest.amount));
             accountRepository.save(account);
             transactionRepository.save(transaction);
             return transaction;
@@ -56,11 +59,11 @@ public class TransactionService {
             throw new AccountNotFoundException("Account does not exist");
     }
     @Transactional
-    public Transaction withdrawal (UUID id, String transactionRef, BigDecimal amount){
-        if (amount.signum() <= 0) {
+    public Transaction withdrawal (UUID id, WithdrawalRequest withdrawalRequest){
+        if (withdrawalRequest.amount.signum() <= 0) {
             throw new InvalidAmountException("Amount must be positive");
         }
-        List<Transaction> transactionList = transactionRepository.findByTransactionRef(transactionRef);
+        List<Transaction> transactionList = transactionRepository.findByTransactionRef(withdrawalRequest.transactionRef);
         if(!transactionList.isEmpty()){
             for (Transaction tr : transactionList) {
                 if (!tr.getAccount().getId().equals(id)){
@@ -72,14 +75,14 @@ public class TransactionService {
         Transaction transaction = new Transaction();
         if (accountRepository.existsById(id)) {
             Account account  = accountRepository.findById(id).get();
-            if ((amount.compareTo(account.getBalance())>0)) {
+            if ((withdrawalRequest.amount.compareTo(account.getBalance())>0)) {
                 throw new NotEnoughMoneyException("Not enough balance");
             }
             transaction.setDate(LocalDateTime.now());
-            transaction.setDebit(amount);
+            transaction.setDebit(withdrawalRequest.amount);
             transaction.setCredit(null);
-            transaction.setTransactionRef(transactionRef);
-            account.setBalance(account.getBalance().subtract(amount));
+            transaction.setTransactionRef(withdrawalRequest.transactionRef);
+            account.setBalance(account.getBalance().subtract(withdrawalRequest.amount));
             transaction.setAccount(account);
             accountRepository.save(account);
             transactionRepository.save(transaction);
@@ -88,63 +91,63 @@ public class TransactionService {
             throw new AccountNotFoundException("Account does not exist");
     }
     @Transactional(isolation = Isolation.SERIALIZABLE)
-    public void transfer (UUID fromId,UUID toId,String transactionRef, BigDecimal amount){
-        if (amount.signum() <= 0) {
+    public void transfer (TransferRequest transferRequest){
+        if (transferRequest.amount.signum() <= 0) {
             throw new InvalidAmountException("Amount must be positive");
         }
-        if (!accountRepository.existsById(fromId) || !accountRepository.existsById(toId)) {
+        if (!accountRepository.existsById(transferRequest.fromId) || !accountRepository.existsById(transferRequest.toId)) {
             throw new AccountNotFoundException("Account does not exist");
         } else {
             Account accountFrom = new Account();
             Account accountTo = new Account();
-            if(fromId.toString().compareTo(toId.toString())<0) {
-                 Optional<Account> accountFromOpt = accountRepository.findByIdForUpdate(fromId);
+            if(transferRequest.fromId.toString().compareTo(transferRequest.toId.toString())<0) {
+                 Optional<Account> accountFromOpt = accountRepository.findByIdForUpdate(transferRequest.fromId);
                  if (accountFromOpt.isPresent()) accountFrom = accountFromOpt.get();
-                Optional<Account> accountToOpt = accountRepository.findByIdForUpdate(toId);
+                Optional<Account> accountToOpt = accountRepository.findByIdForUpdate(transferRequest.toId);
                  if (accountToOpt.isPresent())  accountTo = accountToOpt.get();
 
             } else{
-                Optional<Account> accountToOpt = accountRepository.findByIdForUpdate(toId);
+                Optional<Account> accountToOpt = accountRepository.findByIdForUpdate(transferRequest.toId);
                 if (accountToOpt.isPresent())  accountTo = accountToOpt.get();
-                Optional<Account> accountFromOpt = accountRepository.findByIdForUpdate(fromId);
+                Optional<Account> accountFromOpt = accountRepository.findByIdForUpdate(transferRequest.fromId);
                 if (accountFromOpt.isPresent()) accountFrom = accountFromOpt.get();
             }
-            if (amount.compareTo(BigDecimal.valueOf(5000)) > 0){
+            if (transferRequest.amount.compareTo(BigDecimal.valueOf(5000)) > 0){
                 throw new LimitReachedException("Transfer can be up to 5000");
             }
-            List<Transaction> transactionList = transactionRepository.findByTransactionRef(transactionRef);
+            List<Transaction> transactionList = transactionRepository.findByTransactionRef(transferRequest.transactionRef);
             if(!transactionList.isEmpty()){
                 for (Transaction tr : transactionList) {
-                    if (!tr.getAccount().getId().equals(toId) && !tr.getAccount().getId().equals(fromId)) {
+                    if (!tr.getAccount().getId().equals(transferRequest.toId) && !tr.getAccount().getId().equals(transferRequest.fromId)) {
                         throw new TransactionRefDuplicationException("TransactionRef should be unique");
                     }
                 }
                return;
             }
-            List<Transaction> transactions = getTransactionsByIdAndDateBetween(fromId, LocalDate.now().atStartOfDay(),LocalDate.now().plusDays(1).atStartOfDay());
-            if (accountFrom.getBalance().compareTo(amount) < 0) {
+            List<Transaction> transactions = getTransactionsByIdAndDateBetween(transferRequest.fromId, LocalDate.now().atStartOfDay(),LocalDate.now().plusDays(1).atStartOfDay());
+            if (accountFrom.getBalance().compareTo(transferRequest.amount) < 0) {
                 throw new NotEnoughMoneyException("Not enough money on balance");
             }
             BigDecimal sum = transactions.stream().map(Transaction::getDebit).filter(Objects::nonNull).reduce(BigDecimal.ZERO,BigDecimal::add);
-            if (sum.add(amount).compareTo(BigDecimal.valueOf(5000)) > 0){
+            if (sum.add(transferRequest.amount).compareTo(BigDecimal.valueOf(5000)) > 0){
                 throw new LimitReachedException("Day limit reached 5000, transaction can not continue");
             }
             Transaction transaction1 = new Transaction();
             transaction1.setDate(LocalDateTime.now());
-            accountFrom.setBalance(accountFrom.getBalance().subtract(amount));
+            accountFrom.setBalance(accountFrom.getBalance().subtract(transferRequest.amount));
             transaction1.setAccount(accountFrom);
-            transaction1.setTransactionRef(transactionRef);
+            transaction1.setTransactionRef(transferRequest.transactionRef);
             transaction1.setCredit(null);
-            transaction1.setDebit(amount);
+            transaction1.setDebit(transferRequest.amount);
             transactionRepository.save(transaction1);
 
             Transaction transaction2 = new Transaction();
             transaction2.setDate(LocalDateTime.now());
-            accountTo.setBalance(accountTo.getBalance().add(amount));
+            accountTo.setBalance(accountTo.getBalance().add(transferRequest.amount));
             transaction2.setAccount(accountTo);
-            transaction2.setTransactionRef(transactionRef);
+            transaction2.setTransactionRef(transferRequest.transactionRef);
             transaction2.setDebit(null);
-            transaction2.setCredit(amount);
+            transaction2.setCredit(transferRequest.amount);
             transactionRepository.save(transaction2);
         }
     }
