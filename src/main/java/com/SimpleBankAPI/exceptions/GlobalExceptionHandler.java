@@ -23,5 +23,9 @@ public class GlobalExceptionHandler {
     public ResponseEntity<String> handleNotEnoughMoney(NotEnoughMoneyException e){
         return ResponseEntity.status(400).body(e.getMessage());
     }
+    @ExceptionHandler(TransactionRefDuplicationException.class)
+    public ResponseEntity<String> handleTransactionRefDuplication(TransactionRefDuplicationException e){
+        return ResponseEntity.status(400).body(e.getMessage());
+    }
 
 }

@@ -1,8 +1,5 @@
 package com.SimpleBankAPI.models;
-
-import com.SimpleBankAPI.enums.TransactionName;
 import jakarta.persistence.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -13,7 +10,6 @@ public class Transaction {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
-    @Column(unique = true)
     private String transactionRef;
     private BigDecimal debit;
     private BigDecimal credit;

@@ -1,9 +1,6 @@
 package com.SimpleBankAPI.services;
 
-import com.SimpleBankAPI.exceptions.AccountNotFoundException;
-import com.SimpleBankAPI.exceptions.InvalidAmountException;
-import com.SimpleBankAPI.exceptions.LimitReachedException;
-import com.SimpleBankAPI.exceptions.NotEnoughMoneyException;
+import com.SimpleBankAPI.exceptions.*;
 import com.SimpleBankAPI.models.Account;
 import com.SimpleBankAPI.models.Transaction;
 import com.SimpleBankAPI.repositories.AccountRepository;
@@ -28,7 +25,7 @@ public class TransactionService {
         this.transactionRepository = transactionRepository;
         this.accountRepository = accountRepository;
     }
-
+    @Transactional
     public Transaction deposit(UUID accountId,String transactionRef, BigDecimal amount){
         if (amount.signum() <= 0) {
             throw new InvalidAmountException("Amount must be positive");
@@ -36,6 +33,9 @@ public class TransactionService {
         List<Transaction>transactionList = transactionRepository.findByTransactionRef(transactionRef);
         if (!transactionList.isEmpty()){
             for (Transaction tr:transactionList) {
+                if (!tr.getAccount().getId().equals(accountId)){
+                    throw new TransactionRefDuplicationException("TransactionRef should be unique");
+                }
                 if (tr.getCredit() != null) return tr;
             }
         }
@@ -49,12 +49,13 @@ public class TransactionService {
             transaction.setDebit(null);
             transaction.setAccount(account);
             account.setBalance(account.getBalance().add(amount));
+            accountRepository.save(account);
             transactionRepository.save(transaction);
             return transaction;
         } else
             throw new AccountNotFoundException("Account does not exist");
     }
-
+    @Transactional
     public Transaction withdrawal (UUID id, String transactionRef, BigDecimal amount){
         if (amount.signum() <= 0) {
             throw new InvalidAmountException("Amount must be positive");
@@ -62,6 +63,9 @@ public class TransactionService {
         List<Transaction> transactionList = transactionRepository.findByTransactionRef(transactionRef);
         if(!transactionList.isEmpty()){
             for (Transaction tr : transactionList) {
+                if (!tr.getAccount().getId().equals(id)){
+                    throw new TransactionRefDuplicationException("TransactionRef should be unique");
+                }
                 if (tr.getDebit() != null) return tr;
             }
         }
@@ -77,6 +81,7 @@ public class TransactionService {
             transaction.setTransactionRef(transactionRef);
             account.setBalance(account.getBalance().subtract(amount));
             transaction.setAccount(account);
+            accountRepository.save(account);
             transactionRepository.save(transaction);
             return transaction;
         } else
@@ -109,11 +114,15 @@ public class TransactionService {
             }
             List<Transaction> transactionList = transactionRepository.findByTransactionRef(transactionRef);
             if(!transactionList.isEmpty()){
+                for (Transaction tr : transactionList) {
+                    if (!tr.getAccount().getId().equals(toId) && !tr.getAccount().getId().equals(fromId)) {
+                        throw new TransactionRefDuplicationException("TransactionRef should be unique");
+                    }
+                }
                return;
             }
             List<Transaction> transactions = getTransactionsByIdAndDateBetween(fromId, LocalDate.now().atStartOfDay(),LocalDate.now().plusDays(1).atStartOfDay());
-            BigDecimal currentBalance = transactions.stream().map(Transaction::getCredit).filter(Objects::nonNull).reduce(BigDecimal.ZERO,BigDecimal::add);
-            if (currentBalance.compareTo(amount) < 0){
+            if (accountFrom.getBalance().compareTo(amount) < 0) {
                 throw new NotEnoughMoneyException("Not enough money on balance");
             }
             BigDecimal sum = transactions.stream().map(Transaction::getDebit).filter(Objects::nonNull).reduce(BigDecimal.ZERO,BigDecimal::add);

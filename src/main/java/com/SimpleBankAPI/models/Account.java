@@ -23,6 +23,14 @@ public class Account {
     public Account() {
     }
 
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
     public List<Transaction> getTransactionList() {
         return transactionList;
     }

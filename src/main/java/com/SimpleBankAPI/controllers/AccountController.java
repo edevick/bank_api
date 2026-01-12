@@ -37,14 +37,14 @@ public class AccountController {
 
     //deposit money
   @PostMapping("/{id}/deposit")
-  public ResponseEntity<Void> deposit( @PathVariable UUID accountId,  @RequestParam String transactionRef, @RequestParam BigDecimal amount){
+  public ResponseEntity<Void> deposit( @PathVariable("id") UUID accountId,  @RequestParam String transactionRef, @RequestParam BigDecimal amount){
       transactionService.deposit(accountId,transactionRef,amount);
       return ResponseEntity.ok().build();
   }
 
     //withdrawal money
   @PostMapping("/{id}/withdrawal")
-  public ResponseEntity<Void> withdrawal( @PathVariable UUID accountId,  @RequestParam String transactionRef, @RequestParam BigDecimal amount){
+  public ResponseEntity<Void> withdrawal( @PathVariable("id") UUID accountId,  @RequestParam String transactionRef, @RequestParam BigDecimal amount){
       transactionService.withdrawal(accountId,transactionRef,amount);
       return ResponseEntity.ok().build();
   }
