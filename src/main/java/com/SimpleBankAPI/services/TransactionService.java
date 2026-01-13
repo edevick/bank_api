@@ -8,6 +8,8 @@ import com.SimpleBankAPI.models.Account;
 import com.SimpleBankAPI.models.Transaction;
 import com.SimpleBankAPI.repositories.AccountRepository;
 import com.SimpleBankAPI.repositories.TransactionRepository;
+import org.hibernate.PessimisticLockException;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
@@ -94,8 +96,29 @@ public class TransactionService {
         } else
             throw new AccountNotFoundException("Account does not exist");
     }
+    public void transfer (TransferRequest transferRequest) {
+        int maxRetries = 3;
+        int attempt = 0;
+        while (attempt < maxRetries){
+            try{
+                  executeTransfer(transferRequest);
+            return;
+            }catch (CannotAcquireLockException | PessimisticLockException e){
+                attempt++;
+                if (attempt >= maxRetries) {
+                    throw new TransferFailedException("Transfer failed after retries");
+                }
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new TransferFailedException("Interrupted during retry", ie);
+                }
+            }
+        }
+    }
     @Transactional(isolation = Isolation.SERIALIZABLE)
-    public void transfer (TransferRequest transferRequest){
+    private void executeTransfer(TransferRequest transferRequest){
         BigDecimal amount = transferRequest.getAmount();
         UUID fromId = transferRequest.getFromId();
         UUID toId = transferRequest.getToId();
@@ -109,10 +132,10 @@ public class TransactionService {
             Account accountFrom = new Account();
             Account accountTo = new Account();
             if(fromId.toString().compareTo(toId.toString())<0) {
-                 Optional<Account> accountFromOpt = accountRepository.findByIdForUpdate(fromId);
-                 if (accountFromOpt.isPresent()) accountFrom = accountFromOpt.get();
+                Optional<Account> accountFromOpt = accountRepository.findByIdForUpdate(fromId);
+                if (accountFromOpt.isPresent()) accountFrom = accountFromOpt.get();
                 Optional<Account> accountToOpt = accountRepository.findByIdForUpdate(toId);
-                 if (accountToOpt.isPresent())  accountTo = accountToOpt.get();
+                if (accountToOpt.isPresent())  accountTo = accountToOpt.get();
 
             } else{
                 Optional<Account> accountToOpt = accountRepository.findByIdForUpdate(toId);
@@ -130,7 +153,7 @@ public class TransactionService {
                         throw new TransactionRefDuplicationException("TransactionRef should be unique");
                     }
                 }
-               return;
+                return;
             }
             List<Transaction> transactions = getTransactionsByIdAndDateBetween(fromId, LocalDate.now().atStartOfDay(),LocalDate.now().plusDays(1).atStartOfDay());
             if (accountFrom.getBalance().compareTo(amount) < 0) {
@@ -159,6 +182,7 @@ public class TransactionService {
             transactionRepository.save(transaction2);
         }
     }
+
 
     public List<Transaction> getTransactionsById(UUID id){
         return transactionRepository.findByAccountId(id);

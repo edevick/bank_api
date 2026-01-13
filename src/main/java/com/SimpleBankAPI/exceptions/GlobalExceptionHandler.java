@@ -28,4 +28,9 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(400).body(e.getMessage());
     }
 
+    @ExceptionHandler(TransferFailedException.class)
+    public ResponseEntity<String> handleTransferFailedException(TransferFailedException e){
+        return ResponseEntity.status(400).body(e.getMessage());
+    }
+
 }
