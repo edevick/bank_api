@@ -3,6 +3,7 @@ package com.SimpleBankAPI.services;
 import com.SimpleBankAPI.dtos.DepositRequest;
 import com.SimpleBankAPI.dtos.TransferRequest;
 import com.SimpleBankAPI.dtos.WithdrawalRequest;
+import com.SimpleBankAPI.exceptions.InvalidAmountException;
 import com.SimpleBankAPI.exceptions.NotEnoughMoneyException;
 import com.SimpleBankAPI.models.Account;
 import com.SimpleBankAPI.models.Transaction;
@@ -125,6 +126,30 @@ public class TransactionServiceTest {
     }
 
     @Test
+    void transfer_With_NegativeAmount_ShouldThrowException(){
+        Account sender = new Account();
+        sender.setCreatedAt(LocalDateTime.now());
+        sender.setBalance(BigDecimal.valueOf(200));
+        sender.setNumberAccount(5678L);
+        sender.setOwnerAccount("Mehmet");
+        Account receiver = new Account();
+        receiver.setCreatedAt(LocalDateTime.now());
+        receiver.setBalance(BigDecimal.ZERO);
+        receiver.setNumberAccount(5679L);
+        receiver.setOwnerAccount("Ahmet");
+        Account savedSender = accountRepository.save(sender);
+        Account savedReceiver = accountRepository.save(receiver);
+        TransferRequest transferRequest = new TransferRequest();
+        transferRequest.setAmount(BigDecimal.valueOf(-50));
+        transferRequest.setTransactionRef("TRANSFER-0021");
+        transferRequest.setToId(savedReceiver.getId());
+        transferRequest.setFromId(savedSender.getId());
+        assertThrows(InvalidAmountException.class,()->{
+            transactionService.transfer(transferRequest);
+        });
+    }
+
+    @Test
     void concurrentTransfers_shouldMaintainBalanceConsistency() throws InterruptedException{
         Account sender = new Account();
         sender.setCreatedAt(LocalDateTime.now());
@@ -142,9 +167,9 @@ public class TransactionServiceTest {
 
         ExecutorService executorService = Executors.newFixedThreadPool(10);
         for (int i = 0; i < 10; i++) {
-            final int threadIndex = i; // Make effectively final for lambda capture
+            final int threadIndex = i;
             executorService.submit(() -> {
-                String transactionRef = "TRANSFER-" + threadIndex; // Create inside lambda
+                String transactionRef = "TR-" + threadIndex;
                 TransferRequest transferRequest  = new TransferRequest();
                 transferRequest.setAmount(BigDecimal.valueOf(100));
                 transferRequest.setToId(savedReceiver.getId());
@@ -156,11 +181,10 @@ public class TransactionServiceTest {
         executorService.shutdown();
         executorService.awaitTermination(10, TimeUnit.SECONDS);
 
-        // Use findById instead of getReferenceById to eagerly load the entity
         Account finalSender = accountRepository.findById(savedSender.getId()).orElseThrow();
         Account finalReceiver = accountRepository.findById(savedReceiver.getId()).orElseThrow();
-        assertEquals(BigDecimal.ZERO,finalSender.getBalance());
-        assertEquals(BigDecimal.valueOf(1000),finalReceiver.getBalance());
+        assertEquals(BigDecimal.ZERO, finalSender.getBalance());
+        assertEquals(BigDecimal.valueOf(1000), finalReceiver.getBalance());
 
     }
 }
